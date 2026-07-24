@@ -10,8 +10,8 @@
   <!-- Загрузка React -->
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-  <!-- Загрузка Babel для компиляции JSX прямо в браузере -->
-  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <!-- Обновлен Babel до современной версии, которая поддерживает весь новый синтаксис -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <style>
     @keyframes bounce-slow { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -5px); } }
@@ -414,7 +414,6 @@
 
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
         
-        // Правильный эндпоинт для TikTools
         const wsUrl = `wss://api.tik.tools/?uniqueId=${user}&apiKey=${apiKey}`;
         console.log("Connecting to TikTools WS:", wsUrl);
         
@@ -427,22 +426,38 @@
           try {
             const payload = JSON.parse(event.data);
             
-            // Парсинг формата данных TikTools
+            // СВЕРХБЕЗОПАСНЫЙ ПАРСИНГ: Не используем синтаксис ?. (опциональная цепочка)
+            // чтобы избежать любых ошибок синтаксиса на старых движках Chromium внутри OBS
             if (payload.event === 'like' && payload.data) {
               const data = payload.data;
-              const nickname = data.user?.nickname || 'User';
-              const avatar = data.user?.avatarThumb?.urlList?.[0] || '';
-              const amount = data.likeCount || 1;
+              const nickname = (data.user && data.user.nickname) ? data.user.nickname : 'User';
+              
+              let avatar = '';
+              if (data.user && data.user.avatarThumb && data.user.avatarThumb.urlList && data.user.avatarThumb.urlList.length > 0) {
+                 avatar = data.user.avatarThumb.urlList[0];
+              }
+              
+              const amount = data.likeCount ? data.likeCount : 1;
               handleLike(nickname, avatar, amount);
             }
             
             if (payload.event === 'gift' && payload.data) {
               const data = payload.data;
-              const nickname = data.user?.nickname || 'User';
-              const avatar = data.user?.avatarThumb?.urlList?.[0] || '';
-              const giftName = data.gift?.name || 'Gift';
-              const giftImage = data.gift?.image?.urlList?.[0] || '';
-              const repeatCount = data.repeatCount || 1;
+              const nickname = (data.user && data.user.nickname) ? data.user.nickname : 'User';
+              
+              let avatar = '';
+              if (data.user && data.user.avatarThumb && data.user.avatarThumb.urlList && data.user.avatarThumb.urlList.length > 0) {
+                 avatar = data.user.avatarThumb.urlList[0];
+              }
+              
+              const giftName = (data.gift && data.gift.name) ? data.gift.name : 'Gift';
+              
+              let giftImage = '';
+              if (data.gift && data.gift.image && data.gift.image.urlList && data.gift.image.urlList.length > 0) {
+                 giftImage = data.gift.image.urlList[0];
+              }
+              
+              const repeatCount = data.repeatCount ? data.repeatCount : 1;
               handleGift(nickname, avatar, giftName, giftImage, repeatCount);
             }
           } catch (e) {
@@ -452,7 +467,6 @@
 
         ws.onclose = () => {
           setStatus('disconnected');
-          // Авто-реконнект
           setTimeout(() => connectWebSocket(user, apiKey), 3000);
         };
         
@@ -488,7 +502,6 @@
       return (
         <div className="min-h-screen bg-transparent flex flex-col font-sans text-slate-100 overflow-hidden relative p-6">
           
-          {/* Отображение статусов для помощи в настройке */}
           {status === 'disconnected' && (
             <div className="absolute top-4 right-4 bg-red-900/80 p-2 rounded-full text-xs text-white z-50 flex items-center gap-2 border border-red-500">
               <Icon name="WifiOff" size={14} /> <span>Reconnecting...</span>
