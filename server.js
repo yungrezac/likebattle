@@ -11,136 +11,152 @@ const app = express();
 const server = createServer(app);
 const port = process.env.PORT || 8080;
 
-// Раздаем статический index.html для виджета
+// Раздаем статический index.html (фронтенд)
 app.use(express.static(__dirname));
 
-// WebSocket сервер для приема подключений от пользователей (из OBS)
+// WebSocket сервер для приема подключений от пользователей (из OBS/браузеров)
 const wss = new WebSocketServer({ server });
 
 // Пул активных стримов
-// Ключ: username (чтобы не дублировать подключения, если 10 человек смотрят 1 стрим)
-const tikToolsConnections = new Map();
+// Ключ: username, Значение: { ws: WebSocket, clients: Set, reconnectTimer: Timeout, apiKey: string }
+const activeStreams = new Map();
 
 wss.on('connection', (clientWs, req) => {
-  // 1. Читаем личный ключ и юзернейм из ссылки, которую ввел пользователь
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const apiKey = url.searchParams.get('key');
-  const username = url.searchParams.get('u');
+  try {
+    // 1. Читаем личный ключ и юзернейм из ссылки, которую ввел пользователь
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const apiKey = url.searchParams.get('key');
+    const username = url.searchParams.get('u');
 
-  // Если пользователь забыл указать данные - отключаем его
-  if (!username || !apiKey) {
-    clientWs.send(JSON.stringify({ type: 'error', message: 'Missing key or username in URL' }));
-    clientWs.close();
-    return;
-  }
-
-  console.log(`[Client Connected] OBS requested: ${username}`);
-
-  // 2. Если мы еще не слушаем этого тиктокера - создаем новое подключение к TikTools с ключом клиента
-  if (!tikToolsConnections.has(username)) {
-    connectToTikTools(username, apiKey);
-  }
-
-  // 3. Добавляем зрителя (OBS клиента) в комнату этого тиктокера
-  const ttConn = tikToolsConnections.get(username);
-  ttConn.clients.add(clientWs);
-
-  // 4. Когда пользователь закрывает OBS
-  clientWs.on('close', () => {
-    console.log(`[Client Disconnected] Left room: ${username}`);
-    const conn = tikToolsConnections.get(username);
-    if (conn) {
-      conn.clients.delete(clientWs);
-      
-      // ОПТИМИЗАЦИЯ: Если стримера больше никто не смотрит, разрываем соединение с TikTools
-      // Это спасет сервер от перегрузки, когда у вас будут тысячи пользователей
-      if (conn.clients.size === 0) {
-        console.log(`[Cleanup] No one is watching ${username}. Closing TikTools connection.`);
-        if (conn.ws && conn.ws.readyState === WebSocket.OPEN) {
-          conn.ws.close();
-        }
-        if (conn.reconnectTimer) {
-          clearTimeout(conn.reconnectTimer);
-        }
-        tikToolsConnections.delete(username);
-      }
+    // Если параметры не переданы - отключаем клиента
+    if (!username || !apiKey) {
+      clientWs.send(JSON.stringify({ type: 'error', message: 'Missing key or username in URL' }));
+      clientWs.close(4000, 'Missing Credentials');
+      return;
     }
-  });
+
+    // 2. Ищем или создаем комнату для этого тиктокера
+    let stream = activeStreams.get(username);
+
+    if (!stream) {
+      stream = {
+        ws: null,
+        clients: new Set(),
+        reconnectTimer: null,
+        apiKey: apiKey // Сохраняем ключ для подключения к TikTools
+      };
+      activeStreams.set(username, stream);
+      
+      // Запускаем единственное подключение к TikTools для этой комнаты
+      connectToTikTools(username);
+    }
+
+    // 3. Добавляем зрителя в рассылку
+    stream.clients.add(clientWs);
+    console.log(`[Client Connected] OBS joined room: ${username}. Total viewers: ${stream.clients.size}`);
+
+    // 4. Очистка при отключении клиента (закрытии OBS)
+    clientWs.on('close', () => {
+      if (activeStreams.has(username)) {
+        const currentStream = activeStreams.get(username);
+        currentStream.clients.delete(clientWs);
+        console.log(`[Client Disconnected] OBS left room: ${username}. Total viewers: ${currentStream.clients.size}`);
+
+        // ОПТИМИЗАЦИЯ: Если стримера больше никто не смотрит, разрываем соединение с TikTools
+        if (currentStream.clients.size === 0) {
+          console.log(`[Cleanup] Room ${username} is empty. Closing TikTools connection.`);
+          if (currentStream.ws) {
+            currentStream.ws.close(1000, 'Room empty');
+          }
+          if (currentStream.reconnectTimer) {
+            clearTimeout(currentStream.reconnectTimer);
+          }
+          activeStreams.delete(username);
+        }
+      }
+    });
+
+  } catch (e) {
+    console.error('Connection error:', e);
+  }
 });
 
-// Функция подключения к официальному серверу TikTools
-function connectToTikTools(username, apiKey) {
-  console.log(`[TikTools] Opening connection for ${username}...`);
-  
-  // Отправляем ключ конкретного пользователя в TikTools
-  const wsUrl = `wss://api.tik.tools/?uniqueId=${username}&apiKey=${apiKey}`;
-  const ttWs = new WebSocket(wsUrl);
+function connectToTikTools(username) {
+  const stream = activeStreams.get(username);
+  if (!stream) return;
 
-  const connectionData = {
-    ws: ttWs,
-    clients: new Set(),
-    reconnectTimer: null
-  };
-  
-  // Сохраняем существующие клиенты, если переподключаемся
-  if (tikToolsConnections.has(username)) {
-    connectionData.clients = tikToolsConnections.get(username).clients;
+  // Если уже есть старое соединение (при реконнекте), принудительно закрываем
+  if (stream.ws) {
+    try { stream.ws.close(); } catch(e) {}
   }
+
+  console.log(`[TikTools] Connecting to stream: ${username}`);
   
-  tikToolsConnections.set(username, connectionData);
+  // Формируем URL для TikTools API
+  const wsUrl = `wss://api.tik.tools?uniqueId=${username}&apiKey=${stream.apiKey}`;
+  const ttWs = new WebSocket(wsUrl);
+  stream.ws = ttWs;
 
   ttWs.on('open', () => {
-    console.log(`[TikTools] Connected to live stream: ${username}`);
+    console.log(`[TikTools] Connected to ${username}`);
+    broadcast(username, { type: 'system', message: 'Connected to TikTok via TikTools' });
   });
 
-  ttWs.on('message', (message) => {
+  ttWs.on('message', (data) => {
     try {
-      const payload = JSON.parse(message);
+      const msg = JSON.parse(data);
       
-      // Обработка ошибок от самого TikTools (например, если пользователь ввел неверный ключ)
-      if (payload.type === 'error' || payload.error) {
-         broadcastToClients(username, { type: 'error', message: payload.message || 'Invalid API Key or TikTools error' });
+      // Обработка системных ошибок от TikTools (например, неверный ключ)
+      if (msg.type === 'error' || msg.error) {
+         broadcast(username, { type: 'error', message: msg.message || 'Invalid API Key or TikTools error' });
          return;
       }
 
       let broadcastData = null;
 
-      // Нормализуем данные
-      if (payload.event === 'like' && payload.data) {
+      // Нормализуем данные Лайков
+      if (msg.event === 'like' && msg.data) {
         broadcastData = {
           type: 'like',
-          nickname: payload.data.user?.nickname || 'User',
-          avatar: payload.data.user?.avatarThumb?.urlList?.[0] || '',
-          amount: payload.data.likeCount || 1
+          nickname: msg.data.user?.nickname || msg.data.user?.uniqueId || 'User',
+          avatar: msg.data.user?.profilePictureUrl || 'https://p16-sign-va.tiktokcdn.com/tos-maliva-avt-0068/7065997232230301701~c5_100x100.jpeg',
+          amount: msg.data.likeCount || 1
         };
-      } else if (payload.event === 'gift' && payload.data) {
+      } 
+      // Нормализуем данные Подарков
+      else if (msg.event === 'gift' && msg.data) {
         broadcastData = {
           type: 'gift',
-          nickname: payload.data.user?.nickname || 'User',
-          avatar: payload.data.user?.avatarThumb?.urlList?.[0] || '',
-          giftName: payload.data.gift?.name || 'Gift',
-          giftImage: payload.data.gift?.image?.urlList?.[0] || '',
-          combo: payload.data.repeatCount || 1
+          nickname: msg.data.user?.nickname || msg.data.user?.uniqueId || 'User',
+          avatar: msg.data.user?.profilePictureUrl || 'https://p16-sign-va.tiktokcdn.com/tos-maliva-avt-0068/7065997232230301701~c5_100x100.jpeg',
+          giftName: msg.data.giftName || 'Gift',
+          // В TikTools URL картинки подарка не всегда отправляется, ставим красивую затычку на всякий случай
+          giftImage: msg.data.giftPictureUrl || 'https://cdn-icons-png.flaticon.com/512/3503/3503816.png',
+          combo: msg.data.repeatCount || 1
         };
       }
 
-      // Отправляем данные только тем OBS, которые смотрят именно этого юзера
+      // Если есть полезные данные - рассылаем всем OBS клиентам в этой комнате
       if (broadcastData) {
-        broadcastToClients(username, broadcastData);
+        broadcast(username, broadcastData);
       }
     } catch (e) {
-      // Игнорируем неформатированные системные сообщения
+      // Игнорируем ошибки парсинга системных сообщений
     }
   });
 
-  ttWs.on('close', () => {
-    const conn = tikToolsConnections.get(username);
+  ttWs.on('close', (code, reason) => {
+    console.log(`[TikTools] Disconnected from ${username} (Code: ${code})`);
+    
     // Если соединение оборвалось, но OBS пользователей еще открыто - пробуем восстановить
-    if (conn && conn.clients.size > 0) {
-      console.log(`[TikTools] Disconnected from ${username}. Reconnecting in 3s...`);
-      conn.reconnectTimer = setTimeout(() => connectToTikTools(username, apiKey), 3000);
-    } else {
-      tikToolsConnections.delete(username);
+    const currentStream = activeStreams.get(username);
+    if (currentStream && currentStream.clients.size > 0 && code !== 1000) {
+        console.log(`[TikTools] Reconnecting ${username} in 5 seconds...`);
+        currentStream.reconnectTimer = setTimeout(() => {
+            connectToTikTools(username);
+        }, 5000);
+    } else if (currentStream && currentStream.clients.size === 0) {
+        activeStreams.delete(username);
     }
   });
 
@@ -149,18 +165,19 @@ function connectToTikTools(username, apiKey) {
   });
 }
 
-function broadcastToClients(username, data) {
-  const conn = tikToolsConnections.get(username);
-  if (conn) {
-    const msgString = JSON.stringify(data);
-    conn.clients.forEach(client => {
+// Функция массовой рассылки для конкретной комнаты
+function broadcast(username, data) {
+  const stream = activeStreams.get(username);
+  if (stream && stream.clients) {
+    const payload = JSON.stringify(data);
+    stream.clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
-        client.send(msgString);
+        client.send(payload);
       }
     });
   }
 }
 
 server.listen(port, '0.0.0.0', () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`🚀 TikTools Proxy Server running on port ${port}`);
 });
