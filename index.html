@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TikTools Live Overlay</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+  <style>
+    @keyframes bounce-slow { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -5px); } }
+    @keyframes pulse-fast { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.03); opacity: 0.9; } }
+    @keyframes combo-bounce { 0% { transform: scale(1); } 30% { transform: scale(1.4); } 60% { transform: scale(0.9); } 100% { transform: scale(1); } }
+    @keyframes slide-in { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes slide-in-left { from { opacity: 0; transform: translateX(-100%); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes slide-in-top { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes elastic-pop { 0% { transform: scale(0.8); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+    
+    body { 
+      font-family: 'Inter', system-ui, sans-serif; 
+      background: transparent; /* Transparent for OBS Browser Source */
+      overflow: hidden; 
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // Полностью отказываемся от внешних библиотек иконок для работы в 1 файле
+    const Icon = ({ name, size = 14, className }) => {
+      const paths = {
+        Heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+        Crown: '<path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>',
+        Flame: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+        Gem: '<path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13"/><path d="M13 3l3 6-4 13"/>',
+        Sparkles: '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
+        Star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+        Cpu: '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/>',
+        Zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+        Snowflake: '<line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/><path d="m20 16-4-4 4-4"/><path d="m4 8 4 4-4 4"/><path d="m16 4-4 4-4-4"/><path d="m8 20 4-4 4 4"/>',
+        Medal: '<path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><polyline points="12 18 10.96 17.5 10 18 10.25 16.85 9.5 16 10.68 15.81 11.2 14.8 11.72 15.81 12.9 16 12.15 16.85 12.4 18 11.44 17.5 10.48 18"/>',
+        Trophy: '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+        Infinity: '<path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4Z"/>',
+        Timer: '<line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/>',
+        Loader2: '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
+        WifiOff: '<line x1="2" x2="22" y1="2" y2="22"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 13a10 10 0 0 1 5.24-2.76"/>'
+      };
+
+      return (
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          width={size} 
+          height={size} 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          className={className}
+          dangerouslySetInnerHTML={{ __html: paths[name] || '' }}
+        />
+      );
+    };
+
+    const LikerCard = ({ data, rank }) => {
+      const { name, avatar, count } = data;
+
+      const getLeaderConfig = () => {
+        if (count >= 100000) return {
+          container: 'border-2 border-white bg-gradient-to-r from-indigo-950/80 via-purple-900/80 to-indigo-950/80 shadow-[0_0_50px_rgba(255,255,255,0.4)]', 
+          text: 'text-white font-black drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]',
+          counter: 'text-transparent bg-clip-text bg-gradient-to-b from-white via-fuchsia-200 to-fuchsia-400',
+          icon: <Icon name="Infinity" size={14} className="text-black" />,
+        };
+        if (count >= 50000) return {
+          container: 'border-2 border-orange-500 bg-gradient-to-r from-red-900/60 via-orange-900/60 to-red-900/60 shadow-[0_0_50px_rgba(249,115,22,0.6)] animate-pulse-fast',
+          text: 'text-orange-50 font-black drop-shadow-[0_2px_4px_rgba(0,0,0,1)]',
+          counter: 'text-white drop-shadow-md',
+          icon: <Icon name="Flame" size={14} className="text-orange-400 fill-orange-600" />,
+        };
+        if (count >= 20000) return {
+          container: 'border-2 border-cyan-300 bg-slate-900/80 shadow-[0_0_40px_rgba(34,211,238,0.5)]',
+          text: 'text-cyan-50 font-black',
+          counter: 'text-white drop-shadow-md',
+          icon: <Icon name="Gem" size={14} className="text-cyan-400 fill-cyan-500/50" />,
+        };
+        if (count >= 10000) return {
+          container: 'border-2 border-emerald-400 bg-slate-900/80 shadow-[0_0_40px_rgba(52,211,153,0.4)]',
+          text: 'text-emerald-50 font-bold',
+          counter: 'text-white',
+          icon: <Icon name="Sparkles" size={14} className="text-emerald-400 fill-emerald-600" />,
+        };
+        if (count >= 5000) return {
+          container: 'border-2 border-yellow-400 bg-gradient-to-r from-yellow-900/40 via-amber-900/50 to-yellow-900/40 shadow-[0_0_30px_rgba(250,204,21,0.5)]',
+          text: 'text-yellow-50 font-black',
+          counter: 'text-white',
+          icon: <Icon name="Crown" size={14} className="text-yellow-400 fill-yellow-500" />,
+        };
+        if (count >= 3000) return {
+          container: 'border border-fuchsia-500 bg-slate-900/80 shadow-[0_0_20px_rgba(217,70,239,0.4)]',
+          text: 'text-fuchsia-100 font-bold',
+          counter: 'text-white',
+          icon: <Icon name="Star" size={14} className="text-fuchsia-400 fill-fuchsia-600" />,
+        };
+        if (count >= 1000) return {
+          container: 'border border-blue-500 bg-slate-900/80 shadow-[0_0_15px_rgba(59,130,246,0.4)]', 
+          text: 'text-blue-100 font-bold',
+          counter: 'text-white',
+          icon: <Icon name="Cpu" size={14} className="text-blue-400 fill-blue-600" />,
+        };
+        if (count >= 500) return {
+          container: 'border border-pink-500 bg-slate-900/70 shadow-[0_0_10px_rgba(236,72,153,0.4)]', 
+          text: 'text-pink-100 font-bold',
+          counter: 'text-white',
+          icon: <Icon name="Zap" size={14} className="text-pink-400 fill-pink-600" />,
+        };
+        if (count >= 200) return {
+          container: 'border border-cyan-600 bg-slate-900/70 shadow-lg',
+          text: 'text-cyan-50 font-semibold',
+          counter: 'text-white',
+          icon: <Icon name="Snowflake" size={14} className="text-cyan-400 fill-cyan-500" />,
+        };
+        if (count >= 100) return {
+          container: 'border border-red-600 bg-slate-900/70 shadow-lg',
+          text: 'text-red-50 font-semibold',
+          counter: 'text-white',
+          icon: <Icon name="Flame" size={14} className="text-red-400 fill-red-600" />,
+        };
+        if (count >= 50) return {
+          container: 'border border-orange-700 bg-slate-900/70 shadow-lg',
+          text: 'text-orange-100 font-semibold',
+          counter: 'text-white',
+          icon: <Icon name="Medal" size={14} className="text-orange-500 fill-orange-700" />,
+        };
+        return {
+          container: 'border border-slate-600 bg-slate-900/70 shadow-lg',
+          text: 'text-slate-200 font-semibold',
+          counter: 'text-slate-200',
+          icon: <Icon name="Trophy" size={14} className="text-slate-400 fill-slate-500" />,
+        };
+      };
+
+      const styles = getLeaderConfig();
+
+      return (
+        <div className={`relative z-10 mb-1.5 ml-0 w-[280px] h-11 backdrop-blur-sm rounded-r-full rounded-l-md flex items-center px-2 transition-all duration-300 animate-slide-in ${styles.container}`}>
+          <div className="relative shrink-0 w-8 flex justify-center">
+             <span className={`font-black text-xs italic ${rank === 3 ? 'text-amber-500 drop-shadow' : 'text-slate-400'}`}>#{rank}</span>
+          </div>
+          <div className={`relative shrink-0 mr-2 w-8 h-8 rounded-full overflow-hidden border ${rank === 3 ? 'border-amber-500/50' : 'border-slate-600'}`}>
+             <img src={avatar} className="w-full h-full object-cover" alt="avatar" />
+          </div>
+          <div className="flex-1 min-w-0 mr-2">
+             <span className={`font-bold text-[11px] block truncate ${styles.text}`}>{name}</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1 rounded-full border border-white/10 shadow-inner min-w-[70px] justify-center">
+             <div className="animate-pulse">{styles.icon}</div>
+             <span key={count} className={`text-xs font-black animate-combo-bounce ${styles.counter}`}>
+               {count > 9999 ? `${(count/1000).toFixed(1)}k` : count}
+             </span>
+          </div>
+        </div>
+      );
+    };
+
+    const GiftCard = ({ data, onRemove }) => {
+      const { user, gift, combo, id } = data;
+      const [isExiting, setIsExiting] = useState(false);
+
+      useEffect(() => {
+        setIsExiting(false);
+        const timer = setTimeout(() => {
+          setIsExiting(true);
+          setTimeout(() => onRemove(id), 500);
+        }, 4000);
+        return () => clearTimeout(timer);
+      }, [combo, id, onRemove]);
+
+      const intensity = combo >= 50 ? 'border-amber-400 bg-gradient-to-r from-red-900/80 to-slate-900' : 
+                        combo >= 10 ? 'border-yellow-400 bg-slate-900/90' : 
+                        'border-purple-500 bg-slate-900/80';
+
+      return (
+        <div className={`relative w-[400px] h-24 flex items-center mb-6 transition-all duration-500 ease-out z-50 ${isExiting ? 'opacity-0 translate-y-10' : 'opacity-100 translate-x-0 animate-slide-in-left'}`} style={{ zIndex: combo }}>
+          <div className={`flex items-center backdrop-blur-md border rounded-full pl-2 pr-6 py-2 relative overflow-visible w-full transition-all duration-300 ${intensity} shadow-2xl`}>
+            <div className="relative shrink-0">
+              <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white z-10 relative">
+                 <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+              </div>
+            </div>
+            <div className="ml-4 mr-6 flex flex-col justify-center min-w-0 flex-1">
+              <span className="font-black text-2xl leading-tight truncate text-white drop-shadow-md">{user.name}</span>
+              <span className="text-lg text-slate-200 font-bold truncate">
+                sent <span className="font-black text-white">{gift.name}</span>
+              </span>
+            </div>
+            <div className={`relative -mr-8 -my-8 z-30 group shrink-0 transition-transform duration-200 ${combo >= 10 ? 'scale-125' : 'scale-110'}`}>
+               <img key={combo} src={gift.image} className="w-24 h-24 object-contain drop-shadow-2xl z-10 relative animate-elastic-pop origin-bottom" alt="Gift" />
+               <div className="absolute -top-8 right-0 flex flex-col items-center justify-center pointer-events-none">
+                  <div key={combo} className={`text-4xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-white to-yellow-400 drop-shadow-lg animate-combo-bounce`}>
+                    x{combo}
+                  </div>
+               </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const GiftOverlay = ({ gifts, removeGift }) => {
+      return (
+        <div className="absolute left-6 top-16 flex flex-col items-start z-[100]">
+          {gifts.map(g => <GiftCard key={g.id} data={g} onRemove={removeGift} />)}
+        </div>
+      );
+    };
+
+    const ChampionThrone = ({ champion }) => {
+      if (!champion) return null;
+
+      return (
+        <div className="relative z-40 animate-slide-in-top w-full max-w-[450px]">
+          <div className="relative flex items-center gap-4 px-6 py-3 rounded-2xl border-2 bg-gradient-to-r from-yellow-900/90 to-amber-600/90 border-yellow-400 shadow-[0_10px_40px_rgba(251,191,36,0.2)]">
+            <div className="relative">
+              <Icon name="Crown" size={32} className="absolute -top-6 left-1/2 -translate-x-1/2 animate-bounce text-yellow-300" />
+              <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-yellow-300 shadow-[0_0_20px_rgba(253,224,71,0.6)]">
+                 <img src={champion.avatar} className="w-full h-full object-cover" alt="King" />
+              </div>
+            </div>
+            <div className="flex flex-col items-start min-w-0 flex-1">
+              <span className="text-[10px] font-black tracking-widest uppercase mb-0.5 text-yellow-200">
+                КОРОЛЬ ПРОШЛОГО ЧАСА
+              </span>
+              <span className="text-xl font-black text-white drop-shadow-md truncate w-full leading-none mb-1">
+                {champion.name}
+              </span>
+              <div className="flex items-center gap-2 bg-black/30 px-2 py-0.5 rounded text-sm">
+                <Icon name="Heart" size={12} className="text-red-500 fill-red-500" />
+                <span className="font-mono font-bold text-white">{champion.count}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const VersusBar = ({ user1, user2 }) => {
+      if (!user1) return null;
+
+      const score1 = user1.count;
+      const score2 = user2 ? user2.count : 0;
+      const total = score1 + score2;
+      let percent1 = total === 0 ? 50 : (score1 / total) * 100;
+      percent1 = Math.max(10, Math.min(90, percent1));
+
+      return (
+        <div className="w-full max-w-[450px] relative z-30 animate-slide-in my-3 p-4 rounded-3xl bg-gradient-to-b from-slate-900/90 to-black/90 border border-slate-700/60 shadow-[0_0_30px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+          
+          <div className="absolute left-1/2 top-[40%] -translate-x-1/2 -translate-y-1/2 z-20">
+            <div className="bg-gradient-to-br from-red-600 to-red-800 text-white font-black text-2xl italic px-3 py-1 rounded-lg -skew-x-12 shadow-[0_0_20px_rgba(220,38,38,0.6)] border-2 border-white/20 flex items-center gap-1">
+              <span className="skew-x-12">VS</span>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-start mb-6 px-2 relative">
+            <div className="flex flex-col items-center w-[45%] group">
+              <span className="text-blue-200 font-bold text-sm mb-2 text-center truncate w-full drop-shadow-md">
+                {user1.name}
+              </span>
+              <div className="relative mb-2 transition-transform duration-300 group-hover:scale-105">
+                 <div className="absolute inset-0 rounded-full bg-blue-500 blur-md opacity-60 animate-pulse"></div>
+                 <div className="relative w-16 h-16 rounded-full border-[3px] border-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.5)] overflow-hidden bg-slate-800">
+                    <img src={user1.avatar} className="w-full h-full object-cover" alt={user1.name} />
+                 </div>
+              </div>
+              <div className="flex flex-col items-center">
+                 <span className="text-3xl font-black text-white leading-none drop-shadow-[0_2px_10px_rgba(59,130,246,0.5)]">
+                   {user1.count}
+                 </span>
+                 <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest">Likes</span>
+              </div>
+            </div>
+
+            {user2 ? (
+              <div className="flex flex-col items-center w-[45%] group">
+                <span className="text-rose-200 font-bold text-sm mb-2 text-center truncate w-full drop-shadow-md">
+                  {user2.name}
+                </span>
+                <div className="relative mb-2 transition-transform duration-300 group-hover:scale-105">
+                  <div className="absolute inset-0 rounded-full bg-rose-500 blur-md opacity-60 animate-pulse"></div>
+                  <div className="relative w-16 h-16 rounded-full border-[3px] border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.5)] overflow-hidden bg-slate-800">
+                     <img src={user2.avatar} className="w-full h-full object-cover" alt={user2.name} />
+                  </div>
+                </div>
+                <div className="flex flex-col items-center">
+                   <span className="text-3xl font-black text-white leading-none drop-shadow-[0_2px_10px_rgba(244,63,94,0.5)]">
+                     {user2.count}
+                   </span>
+                   <span className="text-[10px] text-rose-400 font-bold uppercase tracking-widest">Likes</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center w-[45%] opacity-50">
+                 <div className="h-4 w-20 bg-slate-700 rounded mb-2"></div>
+                 <div className="w-16 h-16 rounded-full border-2 border-slate-700 bg-slate-800 mb-2 flex items-center justify-center">
+                    <Icon name="Loader2" className="animate-spin text-slate-500" />
+                 </div>
+                 <div className="h-6 w-10 bg-slate-700 rounded"></div>
+              </div>
+            )}
+          </div>
+
+          <div className="relative h-6 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-600/50 flex shadow-inner group">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-900 via-blue-600 to-blue-400 transition-all duration-700 ease-out relative"
+              style={{ width: `${percent1}%` }}
+            >
+               <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-white/80 shadow-[0_0_10px_white] z-10"></div>
+               <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+            </div>
+            <div className="flex-1 h-full bg-gradient-to-l from-rose-900 via-rose-600 to-rose-400 relative">
+               <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+            </div>
+            <div className="absolute inset-0 flex justify-between items-center px-3 text-[10px] font-black text-white/90 drop-shadow-md pointer-events-none">
+               <span>{Math.round(percent1)}%</span>
+               <span>{Math.round(100 - percent1)}%</span>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const App = () => {
+      const [users, setUsers] = useState([]);
+      const usersMapRef = useRef(new Map()); 
+      const isDirtyRef = useRef(false);
+      const [gifts, setGifts] = useState([]);
+      const giftsRef = useRef([]);
+
+      const [champion, setChampion] = useState(null);
+      const [timeLeft, setTimeLeft] = useState('');
+      const [status, setStatus] = useState('connecting');
+      
+      const [targetUsername, setTargetUsername] = useState('');
+      const [apiKey, setApiKey] = useState('');
+      const [mode, setMode] = useState('likes'); 
+
+      const finishRound = useCallback(() => {
+        const map = usersMapRef.current;
+        if (map.size > 0) {
+          const allUsers = Array.from(map.values()).sort((a, b) => b.count - a.count);
+          if (allUsers[0]) setChampion(allUsers[0]);
+        }
+        usersMapRef.current.clear();
+        setUsers([]);
+        isDirtyRef.current = false;
+      }, []);
+
+      useEffect(() => {
+        const interval = setInterval(() => {
+          const now = new Date();
+          const minutes = 59 - now.getMinutes();
+          const seconds = 59 - now.getSeconds();
+          setTimeLeft(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+          if (minutes === 59 && seconds === 59) finishRound();
+        }, 1000);
+        return () => clearInterval(interval);
+      }, [finishRound]);
+
+      const handleLike = useCallback((username, avatarUrl, amount) => {
+        const map = usersMapRef.current;
+        if (map.has(username)) {
+          const u = map.get(username);
+          u.count += amount;
+          u.lastUpdate = Date.now();
+          if (avatarUrl) u.avatar = avatarUrl;
+        } else {
+          map.set(username, { 
+            id: username, name: username, 
+            avatar: avatarUrl || 'https://placehold.co/100x100/333/fff?text=' + username.charAt(0).toUpperCase(), 
+            count: amount, lastUpdate: Date.now() 
+          });
+        }
+        isDirtyRef.current = true;
+      }, []);
+
+      const handleGift = useCallback((sender, avatar, giftName, giftImg, combo) => {
+        const currentGifts = [...giftsRef.current];
+        const uniqueKey = `${sender}-${giftName}`;
+        const existingIndex = currentGifts.findIndex(g => g.uniqueKey === uniqueKey);
+
+        if (existingIndex >= 0) {
+          currentGifts[existingIndex].combo = combo;
+          currentGifts[existingIndex].trigger = Date.now();
+        } else {
+          const newGift = { id: Date.now(), uniqueKey, user: { name: sender, avatar }, gift: { name: giftName, image: giftImg }, combo };
+          currentGifts.push(newGift);
+        }
+        if (currentGifts.length > 3) currentGifts.shift();
+        giftsRef.current = currentGifts;
+        setGifts([...currentGifts]);
+      }, []);
+
+      const removeGift = useCallback((id) => {
+        const filtered = giftsRef.current.filter(g => g.id !== id);
+        giftsRef.current = filtered;
+        setGifts([...filtered]);
+      }, []);
+
+      useEffect(() => {
+        const interval = setInterval(() => {
+          if (!isDirtyRef.current) return;
+          const allUsers = Array.from(usersMapRef.current.values());
+          allUsers.sort((a, b) => b.count - a.count);
+          setUsers(allUsers.slice(0, 50));
+          isDirtyRef.current = false;
+        }, 300);
+        return () => clearInterval(interval);
+      }, []);
+
+      const wsRef = useRef(null);
+      const reconnectTimeoutRef = useRef(null);
+
+      const connectWebSocket = useCallback((user, key) => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
+        
+        // =======================================================================
+        // URL ПОДКЛЮЧЕНИЯ К TIKTOOLS API:
+        // Используем переданный ключ и username для подключения напрямую.
+        // Отредактируйте 'wss://api.tiktools.net/ws' если эндпоинт отличается.
+        // =======================================================================
+        const wsUrl = key 
+          ? `wss://api.tiktools.net/ws?key=${key}&username=${user}`
+          : `wss://api.tiktools.net/ws?username=${user}`;
+
+        console.log("Connecting to TikTools WS:", wsUrl.replace(key, '***KEY***'));
+        
+        try {
+          const ws = new WebSocket(wsUrl);
+          wsRef.current = ws;
+
+          ws.onopen = () => {
+            setStatus('connected');
+            if (reconnectTimeoutRef.current) { 
+              clearTimeout(reconnectTimeoutRef.current); 
+              reconnectTimeoutRef.current = null; 
+            }
+          };
+
+          ws.onmessage = (event) => {
+            try {
+              const rawData = JSON.parse(event.data);
+              // Универсальный парсинг для различных форматов ответов TikTools
+              const type = rawData.type || rawData.event;
+              const payload = rawData.data || rawData;
+
+              if (type === 'like' || type === 'roomUserSeq') {
+                handleLike(payload.nickname || payload.uniqueId, payload.profilePictureUrl || payload.avatarUrl, payload.likeCount || 1);
+              } else if (type === 'gift') {
+                handleGift(payload.nickname || payload.uniqueId, payload.profilePictureUrl || payload.avatarUrl, payload.giftName, payload.giftPictureUrl, payload.repeatCount || 1);
+              }
+            } catch (e) {
+              console.error('WebSocket parsing error:', e);
+            }
+          };
+
+          ws.onclose = () => {
+            setStatus('disconnected');
+            reconnectTimeoutRef.current = setTimeout(() => connectWebSocket(user, key), 5000);
+          };
+          
+          ws.onerror = (err) => {
+            console.error('WebSocket Error:', err);
+          };
+        } catch (e) {
+          console.error("Failed to construct WebSocket:", e);
+        }
+      }, [handleLike, handleGift]);
+
+      useEffect(() => {
+        // Читаем параметры из URL двумя способами
+        // 1. Из пути: вашсайт.com/API_KEY/USERNAME
+        // 2. Из query: вашсайт.com/?key=API_KEY&u=USERNAME
+        const pathParts = window.location.pathname.split('/').filter(Boolean);
+        const searchParams = new URLSearchParams(window.location.search);
+        
+        let extractedKey = searchParams.get('key') || '';
+        let extractedUser = searchParams.get('u') || searchParams.get('username') || '';
+        let extractedMode = searchParams.get('mode') || 'likes'; 
+
+        if (!extractedKey && !extractedUser && pathParts.length > 0) {
+          if (pathParts[0] === 'gift') {
+            extractedMode = 'gift';
+            extractedKey = pathParts[1] || '';
+            extractedUser = pathParts[2] || '';
+          } else {
+            extractedKey = pathParts[0] || '';
+            extractedUser = pathParts[1] || '';
+            
+            if (pathParts.length === 1) {
+              // Если передан только 1 параметр в пути, считаем его username
+              extractedUser = pathParts[0];
+              extractedKey = '';
+            }
+          }
+        }
+
+        setMode(extractedMode);
+        setTargetUsername(extractedUser);
+        setApiKey(extractedKey);
+
+        if (extractedUser) {
+          connectWebSocket(extractedUser, extractedKey);
+        } else {
+          setStatus('error');
+        }
+
+        return () => {
+          if (wsRef.current) wsRef.current.close();
+          if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+        };
+      }, [connectWebSocket]);
+
+      // Экран-подсказка если URL не заполнен
+      if (!targetUsername) {
+        return (
+          <div className="min-h-screen flex items-center justify-center p-8 bg-black/80 font-sans">
+            <div className="bg-slate-900/90 p-8 border border-slate-700 rounded-2xl max-w-lg w-full shadow-2xl backdrop-blur-md">
+              <h1 className="text-2xl font-bold text-white mb-2">Настройка TikTools Overlay</h1>
+              <p className="text-slate-300 mb-6 text-sm">
+                Пожалуйста, укажите ваш ключ TikTools и имя аккаунта (username) в ссылке для подключения. Добавьте эту ссылку в OBS Browser Source.
+              </p>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Формат ссылки:</label>
+                  <div className="bg-black/50 p-3 mt-1 rounded-lg font-mono text-sm text-green-400 break-all border border-slate-800">
+                    {window.location.origin}/<span className="text-yellow-400">YOUR_API_KEY</span>/<span className="text-cyan-400">YOUR_USERNAME</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Альтернативный формат (параметры):</label>
+                  <div className="bg-black/50 p-3 mt-1 rounded-lg font-mono text-sm text-green-400 break-all border border-slate-800">
+                    {window.location.origin}/?key=<span className="text-yellow-400">YOUR_KEY</span>&u=<span className="text-cyan-400">USERNAME</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      const leader = users[0];
+      const second = users[1];
+      const others = users.slice(2, 5); 
+
+      return (
+        <div className="min-h-screen bg-transparent flex flex-col font-sans text-slate-100 overflow-hidden relative">
+          
+          {status === 'disconnected' && (
+            <div className="absolute top-4 right-16 bg-red-900/80 p-2 rounded-full text-xs text-white z-50 flex items-center gap-2 border border-red-500">
+              <Icon name="WifiOff" size={14} /> <span>Reconnecting to TikTools...</span>
+            </div>
+          )}
+
+          {mode === 'gift' && (
+            <GiftOverlay gifts={gifts} removeGift={removeGift} />
+          )}
+
+          {mode === 'likes' && (
+            <div className="absolute top-6 left-6 flex flex-col items-start gap-3">
+              <div className="flex items-center gap-2 bg-black/40 backdrop-blur border border-white/10 px-3 py-1 rounded-full text-sm font-mono text-white/80">
+                <Icon name="Timer" size={14} className="text-amber-400" />
+                <span>ROUND: <span className="text-white font-bold">{timeLeft}</span></span>
+              </div>
+
+              <ChampionThrone champion={champion} />
+
+              {users.length > 0 ? (
+                <VersusBar user1={leader} user2={second} />
+              ) : (
+                 <div className="flex items-center gap-3 text-slate-400 animate-pulse py-4 bg-slate-900/50 px-4 rounded-xl border border-slate-700/50">
+                   <Icon name="Loader2" className="animate-spin" />
+                   <span className="text-sm font-medium">Ждем событий для @{targetUsername}...</span>
+                 </div>
+              )}
+
+              <div className="flex flex-col items-start w-full pl-0">
+                {others.map((u, i) => (
+                  <LikerCard key={u.id} data={u} rank={i + 3} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
