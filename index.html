@@ -264,6 +264,7 @@
       }, []);
 
       const wsRef = useRef(null);
+      const isConnectingRef = useRef(false);
 
       const connectToProxy = useCallback((user, apiKey) => {
         if (!user || !apiKey) {
@@ -271,10 +272,11 @@
           return;
         }
 
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
+        if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) return;
+        if (isConnectingRef.current) return;
         
+        isConnectingRef.current = true;
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        // Подключаемся к НАШЕМУ Node.js Proxy серверу, который сам работает с TikTools
         const wsUrl = `${protocol}//${window.location.host}/?key=${apiKey}&u=${user}`;
         
         const ws = new WebSocket(wsUrl);
@@ -283,6 +285,7 @@
         ws.onopen = () => {
           setStatus('connected');
           setErrorMessage('');
+          isConnectingRef.current = false;
         }
 
         ws.onmessage = (event) => {
@@ -292,7 +295,6 @@
             if (data.type === 'error') {
               setStatus('error');
               setErrorMessage(data.message);
-              console.error("Backend Error:", data.message);
             } else if (data.type === 'like') {
               handleLike(data.nickname, data.avatar, data.amount);
             } else if (data.type === 'gift') {
@@ -302,6 +304,7 @@
         };
 
         ws.onclose = (event) => {
+          isConnectingRef.current = false;
           if (status !== 'error' && event.code !== 4000) {
              setStatus('disconnected');
              setTimeout(() => connectToProxy(user, apiKey), 3000);
@@ -325,9 +328,7 @@
           setStatus('missing_credentials');
         }
 
-        return () => {
-          if (wsRef.current) wsRef.current.close();
-        };
+        return () => {};
       }, [connectToProxy]);
 
       const leader = users[0];
