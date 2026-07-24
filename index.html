@@ -131,7 +131,7 @@
               <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-yellow-300 shadow-[0_0_20px_rgba(253,224,71,0.6)]"><img src={champion.avatar} className="w-full h-full object-cover" /></div>
             </div>
             <div className="flex flex-col items-start min-w-0 flex-1">
-              <span className="text-[10px] font-black tracking-widest uppercase mb-0.5 text-yellow-200">КОРОЛЬ ПРОШЛОГО ЧАСА</span>
+              <span className="text-[10px] font-black tracking-widest uppercase mb-0.5 text-yellow-200">КОРОЛЬ ПРОШЛОГО РАУНДА</span>
               <span className="text-xl font-black text-white drop-shadow-md truncate w-full leading-none mb-1">{champion.name}</span>
               <div className="flex items-center gap-2 bg-black/30 px-2 py-0.5 rounded text-sm"><Icon name="Heart" size={12} className="text-red-500 fill-red-500" /><span className="font-mono font-bold text-white">{champion.count}</span></div>
             </div>
@@ -210,12 +210,22 @@
       }, []);
 
       useEffect(() => {
+        // Устанавливаем таймер раунда на 15 минут
         const interval = setInterval(() => {
           const now = new Date();
-          const minutes = 59 - now.getMinutes();
+          
+          // Вычисляем оставшиеся минуты в текущем 15-минутном отрезке
+          const currentMinute = now.getMinutes();
+          // Минуты до следующего отрезка (00, 15, 30, 45)
+          const minutesToNext = 14 - (currentMinute % 15);
           const seconds = 59 - now.getSeconds();
-          setTimeLeft(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-          if (minutes === 59 && seconds === 59) finishRound();
+          
+          setTimeLeft(`${minutesToNext.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+          
+          // Если текущая минута это 14, 29, 44 или 59 и секунда 59 - сброс
+          if ((currentMinute % 15 === 14) && seconds === 59) {
+             finishRound();
+          }
         }, 1000);
         return () => clearInterval(interval);
       }, [finishRound]);
@@ -295,6 +305,7 @@
             if (data.type === 'error') {
               setStatus('error');
               setErrorMessage(data.message);
+              console.error("Backend Error:", data.message);
             } else if (data.type === 'like') {
               handleLike(data.nickname, data.avatar, data.amount);
             } else if (data.type === 'gift') {
