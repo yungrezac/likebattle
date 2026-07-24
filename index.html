@@ -34,7 +34,6 @@
   <script type="text/babel" data-type="module">
     const { useState, useEffect, useRef, useCallback } = React;
 
-    // --- ICONS ---
     const Icon = ({ name, size = 14, className }) => {
       const paths = {
         Heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
@@ -58,7 +57,6 @@
       );
     };
 
-    // --- COMPONENTS ---
     const LikerCard = ({ data, rank }) => {
       const { name, avatar, count } = data;
       const getLeaderConfig = () => {
@@ -187,7 +185,6 @@
       );
     };
 
-    // --- MAIN APP ---
     const App = () => {
       const [users, setUsers] = useState([]);
       const usersMapRef = useRef(new Map()); 
@@ -223,14 +220,14 @@
         return () => clearInterval(interval);
       }, [finishRound]);
 
-      const handleLike = useCallback((username, avatarUrl, amount) => {
+      const handleLike = useCallback((nickname, avatarUrl, amount) => {
         const map = usersMapRef.current;
-        if (map.has(username)) {
-          const u = map.get(username);
+        if (map.has(nickname)) {
+          const u = map.get(nickname);
           u.count += amount;
           if (avatarUrl) u.avatar = avatarUrl;
         } else {
-          map.set(username, { id: username, name: username, avatar: avatarUrl || 'https://p16-sign-va.tiktokcdn.com/tos-maliva-avt-0068/7065997232230301701~c5_100x100.jpeg', count: amount });
+          map.set(nickname, { id: nickname, name: nickname, avatar: avatarUrl || 'https://p16-sign-va.tiktokcdn.com/tos-maliva-avt-0068/7065997232230301701~c5_100x100.jpeg', count: amount });
         }
         isDirtyRef.current = true;
       }, []);
@@ -255,7 +252,6 @@
         setGifts([...filtered]);
       }, []);
 
-      // BATCHING (ОБНОВЛЕНИЕ РАЗ В 300МС ДЛЯ ОПТИМИЗАЦИИ)
       useEffect(() => {
         const interval = setInterval(() => {
           if (!isDirtyRef.current) return;
@@ -269,7 +265,7 @@
 
       const wsRef = useRef(null);
 
-      const connectWebSocket = useCallback((user, apiKey) => {
+      const connectToProxy = useCallback((user, apiKey) => {
         if (!user || !apiKey) {
           setStatus('missing_credentials');
           return;
@@ -277,12 +273,9 @@
 
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
         
-        // ПОДКЛЮЧЕНИЕ К НАШЕМУ НОД СЕРВЕРУ
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        
-        // ВНИМАНИЕ: Подключаемся к нашему Proxy-серверу (server.js), а не к TikTools
+        // Подключаемся к НАШЕМУ Node.js Proxy серверу, который сам работает с TikTools
         const wsUrl = `${protocol}//${window.location.host}/?key=${apiKey}&u=${user}`;
-        console.log("Connecting to Proxy Backend...");
         
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
@@ -308,17 +301,16 @@
           } catch (e) {}
         };
 
-        ws.onclose = () => {
-          if (status !== 'error') {
+        ws.onclose = (event) => {
+          if (status !== 'error' && event.code !== 4000) {
              setStatus('disconnected');
-             setTimeout(() => connectWebSocket(user, apiKey), 3000);
+             setTimeout(() => connectToProxy(user, apiKey), 3000);
           }
         };
         
       }, [handleLike, handleGift, status]);
 
       useEffect(() => {
-        // Читаем параметры из URL клиента (ОБС)
         const params = new URLSearchParams(window.location.search);
         const apiKey = params.get('key');
         const username = params.get('u');
@@ -328,7 +320,7 @@
         
         if (username && apiKey) {
           setTargetUsername(username);
-          connectWebSocket(username, apiKey);
+          connectToProxy(username, apiKey);
         } else {
           setStatus('missing_credentials');
         }
@@ -336,7 +328,7 @@
         return () => {
           if (wsRef.current) wsRef.current.close();
         };
-      }, [connectWebSocket]);
+      }, [connectToProxy]);
 
       const leader = users[0];
       const second = users[1];
@@ -345,7 +337,6 @@
       return (
         <div className="min-h-screen bg-transparent flex flex-col font-sans text-slate-100 overflow-hidden relative p-6">
           
-          {/* СТАТУСЫ ОШИБОК И ПОДКЛЮЧЕНИЙ */}
           {status === 'disconnected' && (
             <div className="absolute top-4 right-4 bg-amber-900/80 p-2 rounded-full text-xs text-white z-50 flex items-center gap-2 border border-amber-500 shadow-lg">
               <Icon name="WifiOff" size={14} /> <span>Connecting to server...</span>
