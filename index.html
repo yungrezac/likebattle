@@ -5,12 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TikTools Live Overlay</title>
   
-  <!-- Загрузка Tailwind CSS для стилей -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Загрузка React -->
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-  <!-- Обновлен Babel до современной версии, которая поддерживает весь новый синтаксис -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <style>
@@ -24,7 +21,7 @@
     
     body { 
       font-family: 'Inter', system-ui, sans-serif; 
-      background: transparent; /* Прозрачный фон для OBS */
+      background: transparent;
       overflow: hidden; 
       margin: 0;
       padding: 0;
@@ -34,9 +31,10 @@
 <body>
   <div id="root"></div>
 
-  <script type="text/babel">
+  <script type="text/babel" data-type="module">
     const { useState, useEffect, useRef, useCallback } = React;
 
+    // --- ICONS ---
     const Icon = ({ name, size = 14, className }) => {
       const paths = {
         Heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
@@ -55,120 +53,39 @@
         Loader2: '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
         WifiOff: '<line x1="2" x2="22" y1="2" y2="22"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 13a10 10 0 0 1 5.24-2.76"/>'
       };
-
       return (
-        <svg 
-          xmlns="http://www.w3.org/2000/svg" 
-          width={size} 
-          height={size} 
-          viewBox="0 0 24 24" 
-          fill="none" 
-          stroke="currentColor" 
-          strokeWidth="2" 
-          strokeLinecap="round" 
-          strokeLinejoin="round" 
-          className={className}
-          dangerouslySetInnerHTML={{ __html: paths[name] || '' }}
-        />
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} dangerouslySetInnerHTML={{ __html: paths[name] || '' }} />
       );
     };
 
+    // --- COMPONENTS ---
     const LikerCard = ({ data, rank }) => {
       const { name, avatar, count } = data;
-
       const getLeaderConfig = () => {
-        if (count >= 100000) return {
-          container: 'border-2 border-white bg-gradient-to-r from-indigo-950/80 via-purple-900/80 to-indigo-950/80 shadow-[0_0_50px_rgba(255,255,255,0.4)]', 
-          text: 'text-white font-black drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]',
-          counter: 'text-transparent bg-clip-text bg-gradient-to-b from-white via-fuchsia-200 to-fuchsia-400',
-          icon: <Icon name="Infinity" className="text-black" />,
-        };
-        if (count >= 50000) return {
-          container: 'border-2 border-orange-500 bg-gradient-to-r from-red-900/60 via-orange-900/60 to-red-900/60 shadow-[0_0_50px_rgba(249,115,22,0.6)] animate-pulse-fast',
-          text: 'text-orange-50 font-black drop-shadow-[0_2px_4px_rgba(0,0,0,1)]',
-          counter: 'text-white drop-shadow-md',
-          icon: <Icon name="Flame" className="text-orange-400" />,
-        };
-        if (count >= 20000) return {
-          container: 'border-2 border-cyan-300 bg-slate-900/80 shadow-[0_0_40px_rgba(34,211,238,0.5)]',
-          text: 'text-cyan-50 font-black',
-          counter: 'text-white drop-shadow-md',
-          icon: <Icon name="Gem" className="text-cyan-400" />,
-        };
-        if (count >= 10000) return {
-          container: 'border-2 border-emerald-400 bg-slate-900/80 shadow-[0_0_40px_rgba(52,211,153,0.4)]',
-          text: 'text-emerald-50 font-bold',
-          counter: 'text-white',
-          icon: <Icon name="Sparkles" className="text-emerald-400" />,
-        };
-        if (count >= 5000) return {
-          container: 'border-2 border-yellow-400 bg-gradient-to-r from-yellow-900/40 via-amber-900/50 to-yellow-900/40 shadow-[0_0_30px_rgba(250,204,21,0.5)]',
-          text: 'text-yellow-50 font-black',
-          counter: 'text-white',
-          icon: <Icon name="Crown" className="text-yellow-400" />,
-        };
-        if (count >= 3000) return {
-          container: 'border border-fuchsia-500 bg-slate-900/80 shadow-[0_0_20px_rgba(217,70,239,0.4)]',
-          text: 'text-fuchsia-100 font-bold',
-          counter: 'text-white',
-          icon: <Icon name="Star" className="text-fuchsia-400" />,
-        };
-        if (count >= 1000) return {
-          container: 'border border-blue-500 bg-slate-900/80 shadow-[0_0_15px_rgba(59,130,246,0.4)]', 
-          text: 'text-blue-100 font-bold',
-          counter: 'text-white',
-          icon: <Icon name="Cpu" className="text-blue-400" />,
-        };
-        if (count >= 500) return {
-          container: 'border border-pink-500 bg-slate-900/70 shadow-[0_0_10px_rgba(236,72,153,0.4)]', 
-          text: 'text-pink-100 font-bold',
-          counter: 'text-white',
-          icon: <Icon name="Zap" className="text-pink-400" />,
-        };
-        if (count >= 200) return {
-          container: 'border border-cyan-600 bg-slate-900/70 shadow-lg',
-          text: 'text-cyan-50 font-semibold',
-          counter: 'text-white',
-          icon: <Icon name="Snowflake" className="text-cyan-400" />,
-        };
-        if (count >= 100) return {
-          container: 'border border-red-600 bg-slate-900/70 shadow-lg',
-          text: 'text-red-50 font-semibold',
-          counter: 'text-white',
-          icon: <Icon name="Flame" className="text-red-400" />,
-        };
-        if (count >= 50) return {
-          container: 'border border-orange-700 bg-slate-900/70 shadow-lg',
-          text: 'text-orange-100 font-semibold',
-          counter: 'text-white',
-          icon: <Icon name="Medal" className="text-orange-500" />,
-        };
-        return {
-          container: 'border border-slate-600 bg-slate-900/70 shadow-lg',
-          text: 'text-slate-200 font-semibold',
-          counter: 'text-slate-200',
-          icon: <Icon name="Trophy" className="text-slate-400" />,
-        };
+        if (count >= 100000) return { container: 'border-2 border-white bg-gradient-to-r from-indigo-950/80 via-purple-900/80 to-indigo-950/80 shadow-[0_0_50px_rgba(255,255,255,0.4)]', text: 'text-white font-black drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]', counter: 'text-transparent bg-clip-text bg-gradient-to-b from-white via-fuchsia-200 to-fuchsia-400', icon: <Icon name="Infinity" className="text-black" /> };
+        if (count >= 50000) return { container: 'border-2 border-orange-500 bg-gradient-to-r from-red-900/60 via-orange-900/60 to-red-900/60 shadow-[0_0_50px_rgba(249,115,22,0.6)] animate-pulse-fast', text: 'text-orange-50 font-black drop-shadow-[0_2px_4px_rgba(0,0,0,1)]', counter: 'text-white drop-shadow-md', icon: <Icon name="Flame" className="text-orange-400" /> };
+        if (count >= 20000) return { container: 'border-2 border-cyan-300 bg-slate-900/80 shadow-[0_0_40px_rgba(34,211,238,0.5)]', text: 'text-cyan-50 font-black', counter: 'text-white drop-shadow-md', icon: <Icon name="Gem" className="text-cyan-400" /> };
+        if (count >= 10000) return { container: 'border-2 border-emerald-400 bg-slate-900/80 shadow-[0_0_40px_rgba(52,211,153,0.4)]', text: 'text-emerald-50 font-bold', counter: 'text-white', icon: <Icon name="Sparkles" className="text-emerald-400" /> };
+        if (count >= 5000) return { container: 'border-2 border-yellow-400 bg-gradient-to-r from-yellow-900/40 via-amber-900/50 to-yellow-900/40 shadow-[0_0_30px_rgba(250,204,21,0.5)]', text: 'text-yellow-50 font-black', counter: 'text-white', icon: <Icon name="Crown" className="text-yellow-400" /> };
+        if (count >= 3000) return { container: 'border border-fuchsia-500 bg-slate-900/80 shadow-[0_0_20px_rgba(217,70,239,0.4)]', text: 'text-fuchsia-100 font-bold', counter: 'text-white', icon: <Icon name="Star" className="text-fuchsia-400" /> };
+        if (count >= 1000) return { container: 'border border-blue-500 bg-slate-900/80 shadow-[0_0_15px_rgba(59,130,246,0.4)]', text: 'text-blue-100 font-bold', counter: 'text-white', icon: <Icon name="Cpu" className="text-blue-400" /> };
+        if (count >= 500) return { container: 'border border-pink-500 bg-slate-900/70 shadow-[0_0_10px_rgba(236,72,153,0.4)]', text: 'text-pink-100 font-bold', counter: 'text-white', icon: <Icon name="Zap" className="text-pink-400" /> };
+        if (count >= 200) return { container: 'border border-cyan-600 bg-slate-900/70 shadow-lg', text: 'text-cyan-50 font-semibold', counter: 'text-white', icon: <Icon name="Snowflake" className="text-cyan-400" /> };
+        if (count >= 100) return { container: 'border border-red-600 bg-slate-900/70 shadow-lg', text: 'text-red-50 font-semibold', counter: 'text-white', icon: <Icon name="Flame" className="text-red-400" /> };
+        if (count >= 50) return { container: 'border border-orange-700 bg-slate-900/70 shadow-lg', text: 'text-orange-100 font-semibold', counter: 'text-white', icon: <Icon name="Medal" className="text-orange-500" /> };
+        return { container: 'border border-slate-600 bg-slate-900/70 shadow-lg', text: 'text-slate-200 font-semibold', counter: 'text-slate-200', icon: <Icon name="Trophy" className="text-slate-400" /> };
       };
-
       const styles = getLeaderConfig();
-
       return (
         <div className={`relative z-10 mb-1.5 ml-0 w-[280px] h-11 backdrop-blur-sm rounded-r-full rounded-l-md flex items-center px-2 transition-all duration-300 animate-slide-in ${styles.container}`}>
-          <div className="relative shrink-0 w-8 flex justify-center">
-             <span className={`font-black text-xs italic ${rank === 3 ? 'text-amber-500 drop-shadow' : 'text-slate-400'}`}>#{rank}</span>
-          </div>
+          <div className="relative shrink-0 w-8 flex justify-center"><span className={`font-black text-xs italic ${rank === 3 ? 'text-amber-500 drop-shadow' : 'text-slate-400'}`}>#{rank}</span></div>
           <div className={`relative shrink-0 mr-2 w-8 h-8 rounded-full overflow-hidden border ${rank === 3 ? 'border-amber-500/50' : 'border-slate-600'}`}>
              <img src={avatar} className="w-full h-full object-cover" alt="avatar" />
           </div>
-          <div className="flex-1 min-w-0 mr-2">
-             <span className={`font-bold text-[11px] block truncate ${styles.text}`}>{name}</span>
-          </div>
+          <div className="flex-1 min-w-0 mr-2"><span className={`font-bold text-[11px] block truncate ${styles.text}`}>{name}</span></div>
           <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1 rounded-full border border-white/10 shadow-inner min-w-[70px] justify-center">
              <div className="animate-pulse">{styles.icon}</div>
-             <span key={count} className={`text-xs font-black animate-combo-bounce ${styles.counter}`}>
-               {count > 9999 ? `${(count/1000).toFixed(1)}k` : count}
-             </span>
+             <span className={`text-xs font-black animate-combo-bounce ${styles.counter}`}>{count > 9999 ? `${(count/1000).toFixed(1)}k` : count}</span>
           </div>
         </div>
       );
@@ -177,40 +94,24 @@
     const GiftCard = ({ data, onRemove }) => {
       const { user, gift, combo, id } = data;
       const [isExiting, setIsExiting] = useState(false);
-
       useEffect(() => {
         setIsExiting(false);
-        const timer = setTimeout(() => {
-          setIsExiting(true);
-          setTimeout(() => onRemove(id), 500);
-        }, 4000);
+        const timer = setTimeout(() => { setIsExiting(true); setTimeout(() => onRemove(id), 500); }, 4000);
         return () => clearTimeout(timer);
       }, [combo, id, onRemove]);
-
-      const intensity = combo >= 50 ? 'border-amber-400 bg-gradient-to-r from-red-900/80 to-slate-900' : 
-                        combo >= 10 ? 'border-yellow-400 bg-slate-900/90' : 
-                        'border-purple-500 bg-slate-900/80';
-
+      const intensity = combo >= 50 ? 'border-amber-400 bg-gradient-to-r from-red-900/80 to-slate-900' : combo >= 10 ? 'border-yellow-400 bg-slate-900/90' : 'border-purple-500 bg-slate-900/80';
       return (
         <div className={`relative w-[400px] h-24 flex items-center mb-6 transition-all duration-500 ease-out z-50 ${isExiting ? 'opacity-0 translate-y-10' : 'opacity-100 translate-x-0 animate-slide-in-left'}`} style={{ zIndex: combo }}>
           <div className={`flex items-center backdrop-blur-md border rounded-full pl-2 pr-6 py-2 relative overflow-visible w-full transition-all duration-300 ${intensity} shadow-2xl`}>
-            <div className="relative shrink-0">
-              <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white z-10 relative">
-                 <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
-              </div>
-            </div>
+            <div className="relative shrink-0"><div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white z-10 relative"><img src={user.avatar} className="w-full h-full object-cover" /></div></div>
             <div className="ml-4 mr-6 flex flex-col justify-center min-w-0 flex-1">
               <span className="font-black text-2xl leading-tight truncate text-white drop-shadow-md">{user.name}</span>
-              <span className="text-lg text-slate-200 font-bold truncate">
-                sent <span className="font-black text-white">{gift.name}</span>
-              </span>
+              <span className="text-lg text-slate-200 font-bold truncate">sent <span className="font-black text-white">{gift.name}</span></span>
             </div>
             <div className={`relative -mr-8 -my-8 z-30 group shrink-0 transition-transform duration-200 ${combo >= 10 ? 'scale-125' : 'scale-110'}`}>
-               <img key={combo} src={gift.image} className="w-24 h-24 object-contain drop-shadow-2xl z-10 relative animate-elastic-pop origin-bottom" alt="Gift" />
+               <img key={combo} src={gift.image} className="w-24 h-24 object-contain drop-shadow-2xl z-10 relative animate-elastic-pop origin-bottom" />
                <div className="absolute -top-8 right-0 flex flex-col items-center justify-center pointer-events-none">
-                  <div key={combo} className={`text-4xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-white to-yellow-400 drop-shadow-lg animate-combo-bounce`}>
-                    x{combo}
-                  </div>
+                  <div key={combo} className={`text-4xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-white to-yellow-400 drop-shadow-lg animate-combo-bounce`}>x{combo}</div>
                </div>
             </div>
           </div>
@@ -219,9 +120,7 @@
     };
 
     const GiftOverlay = ({ gifts, removeGift }) => (
-      <div className="absolute left-6 top-16 flex flex-col items-start z-[100]">
-        {gifts.map(g => <GiftCard key={g.id} data={g} onRemove={removeGift} />)}
-      </div>
+      <div className="absolute left-6 top-16 flex flex-col items-start z-[100]">{gifts.map(g => <GiftCard key={g.id} data={g} onRemove={removeGift} />)}</div>
     );
 
     const ChampionThrone = ({ champion }) => {
@@ -231,17 +130,12 @@
           <div className="relative flex items-center gap-4 px-6 py-3 rounded-2xl border-2 bg-gradient-to-r from-yellow-900/90 to-amber-600/90 border-yellow-400 shadow-[0_10px_40px_rgba(251,191,36,0.2)]">
             <div className="relative">
               <div className="absolute -top-6 left-1/2 -translate-x-1/2 animate-bounce text-yellow-300"><Icon name="Crown" size={32} /></div>
-              <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-yellow-300 shadow-[0_0_20px_rgba(253,224,71,0.6)]">
-                 <img src={champion.avatar} className="w-full h-full object-cover" alt="King" />
-              </div>
+              <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-yellow-300 shadow-[0_0_20px_rgba(253,224,71,0.6)]"><img src={champion.avatar} className="w-full h-full object-cover" /></div>
             </div>
             <div className="flex flex-col items-start min-w-0 flex-1">
               <span className="text-[10px] font-black tracking-widest uppercase mb-0.5 text-yellow-200">КОРОЛЬ ПРОШЛОГО ЧАСА</span>
               <span className="text-xl font-black text-white drop-shadow-md truncate w-full leading-none mb-1">{champion.name}</span>
-              <div className="flex items-center gap-2 bg-black/30 px-2 py-0.5 rounded text-sm">
-                <Icon name="Heart" size={12} className="text-red-500 fill-red-500" />
-                <span className="font-mono font-bold text-white">{champion.count}</span>
-              </div>
+              <div className="flex items-center gap-2 bg-black/30 px-2 py-0.5 rounded text-sm"><Icon name="Heart" size={12} className="text-red-500 fill-red-500" /><span className="font-mono font-bold text-white">{champion.count}</span></div>
             </div>
           </div>
         </div>
@@ -255,81 +149,55 @@
       const total = score1 + score2;
       let percent1 = total === 0 ? 50 : (score1 / total) * 100;
       percent1 = Math.max(10, Math.min(90, percent1));
-
       return (
         <div className="w-full max-w-[450px] relative z-30 animate-slide-in my-3 p-4 rounded-3xl bg-gradient-to-b from-slate-900/90 to-black/90 border border-slate-700/60 shadow-[0_0_30px_rgba(0,0,0,0.5)] backdrop-blur-xl">
-          <div className="absolute left-1/2 top-[40%] -translate-x-1/2 -translate-y-1/2 z-20">
-            <div className="bg-gradient-to-br from-red-600 to-red-800 text-white font-black text-2xl italic px-3 py-1 rounded-lg -skew-x-12 shadow-[0_0_20px_rgba(220,38,38,0.6)] border-2 border-white/20 flex items-center gap-1">
-              <span className="skew-x-12">VS</span>
-            </div>
-          </div>
-
+          <div className="absolute left-1/2 top-[40%] -translate-x-1/2 -translate-y-1/2 z-20"><div className="bg-gradient-to-br from-red-600 to-red-800 text-white font-black text-2xl italic px-3 py-1 rounded-lg -skew-x-12 shadow-[0_0_20px_rgba(220,38,38,0.6)] border-2 border-white/20 flex items-center gap-1"><span className="skew-x-12">VS</span></div></div>
           <div className="flex justify-between items-start mb-6 px-2 relative">
             <div className="flex flex-col items-center w-[45%] group">
               <span className="text-blue-200 font-bold text-sm mb-2 text-center truncate w-full drop-shadow-md">{user1.name}</span>
               <div className="relative mb-2 transition-transform duration-300 group-hover:scale-105">
                  <div className="absolute inset-0 rounded-full bg-blue-500 blur-md opacity-60 animate-pulse"></div>
-                 <div className="relative w-16 h-16 rounded-full border-[3px] border-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.5)] overflow-hidden bg-slate-800">
-                    <img src={user1.avatar} className="w-full h-full object-cover" alt={user1.name} />
-                 </div>
+                 <div className="relative w-16 h-16 rounded-full border-[3px] border-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.5)] overflow-hidden bg-slate-800"><img src={user1.avatar} className="w-full h-full object-cover" /></div>
               </div>
-              <div className="flex flex-col items-center">
-                 <span className="text-3xl font-black text-white leading-none drop-shadow-[0_2px_10px_rgba(59,130,246,0.5)]">{user1.count}</span>
-                 <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest">Likes</span>
-              </div>
+              <div className="flex flex-col items-center"><span className="text-3xl font-black text-white leading-none drop-shadow-[0_2px_10px_rgba(59,130,246,0.5)]">{user1.count}</span><span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest">Likes</span></div>
             </div>
-
             {user2 ? (
               <div className="flex flex-col items-center w-[45%] group">
                 <span className="text-rose-200 font-bold text-sm mb-2 text-center truncate w-full drop-shadow-md">{user2.name}</span>
                 <div className="relative mb-2 transition-transform duration-300 group-hover:scale-105">
                   <div className="absolute inset-0 rounded-full bg-rose-500 blur-md opacity-60 animate-pulse"></div>
-                  <div className="relative w-16 h-16 rounded-full border-[3px] border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.5)] overflow-hidden bg-slate-800">
-                     <img src={user2.avatar} className="w-full h-full object-cover" alt={user2.name} />
-                  </div>
+                  <div className="relative w-16 h-16 rounded-full border-[3px] border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.5)] overflow-hidden bg-slate-800"><img src={user2.avatar} className="w-full h-full object-cover" /></div>
                 </div>
-                <div className="flex flex-col items-center">
-                   <span className="text-3xl font-black text-white leading-none drop-shadow-[0_2px_10px_rgba(244,63,94,0.5)]">{user2.count}</span>
-                   <span className="text-[10px] text-rose-400 font-bold uppercase tracking-widest">Likes</span>
-                </div>
+                <div className="flex flex-col items-center"><span className="text-3xl font-black text-white leading-none drop-shadow-[0_2px_10px_rgba(244,63,94,0.5)]">{user2.count}</span><span className="text-[10px] text-rose-400 font-bold uppercase tracking-widest">Likes</span></div>
               </div>
             ) : (
               <div className="flex flex-col items-center w-[45%] opacity-50">
                  <div className="h-4 w-20 bg-slate-700 rounded mb-2"></div>
-                 <div className="w-16 h-16 rounded-full border-2 border-slate-700 bg-slate-800 mb-2 flex items-center justify-center">
-                    <div className="animate-spin text-slate-500"><Icon name="Loader2" size={24} /></div>
-                 </div>
+                 <div className="w-16 h-16 rounded-full border-2 border-slate-700 bg-slate-800 mb-2 flex items-center justify-center"><div className="animate-spin text-slate-500"><Icon name="Loader2" size={24} /></div></div>
                  <div className="h-6 w-10 bg-slate-700 rounded"></div>
               </div>
             )}
           </div>
-
           <div className="relative h-6 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-600/50 flex shadow-inner group">
-            <div className="h-full bg-gradient-to-r from-blue-900 via-blue-600 to-blue-400 transition-all duration-700 ease-out relative" style={{ width: `${percent1}%` }}>
-               <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-white/80 shadow-[0_0_10px_white] z-10"></div>
-            </div>
+            <div className="h-full bg-gradient-to-r from-blue-900 via-blue-600 to-blue-400 transition-all duration-700 ease-out relative" style={{ width: `${percent1}%` }}><div className="absolute right-0 top-0 bottom-0 w-0.5 bg-white/80 shadow-[0_0_10px_white] z-10"></div></div>
             <div className="flex-1 h-full bg-gradient-to-l from-rose-900 via-rose-600 to-rose-400 relative"></div>
-            <div className="absolute inset-0 flex justify-between items-center px-3 text-[10px] font-black text-white/90 drop-shadow-md pointer-events-none">
-               <span>{Math.round(percent1)}%</span>
-               <span>{Math.round(100 - percent1)}%</span>
-            </div>
+            <div className="absolute inset-0 flex justify-between items-center px-3 text-[10px] font-black text-white/90 drop-shadow-md pointer-events-none"><span>{Math.round(percent1)}%</span><span>{Math.round(100 - percent1)}%</span></div>
           </div>
         </div>
       );
     };
 
+    // --- MAIN APP ---
     const App = () => {
       const [users, setUsers] = useState([]);
       const usersMapRef = useRef(new Map()); 
       const isDirtyRef = useRef(false);
-
       const [gifts, setGifts] = useState([]);
       const giftsRef = useRef([]);
-
       const [champion, setChampion] = useState(null);
       const [timeLeft, setTimeLeft] = useState('');
       const [status, setStatus] = useState('connecting');
-      
+      const [errorMessage, setErrorMessage] = useState('');
       const [targetUsername, setTargetUsername] = useState('');
       const [mode, setMode] = useState('likes'); 
 
@@ -362,12 +230,7 @@
           u.count += amount;
           if (avatarUrl) u.avatar = avatarUrl;
         } else {
-          map.set(username, { 
-            id: username, 
-            name: username, 
-            avatar: avatarUrl || 'https://p16-sign-va.tiktokcdn.com/tos-maliva-avt-0068/7065997232230301701~c5_100x100.jpeg', 
-            count: amount 
-          });
+          map.set(username, { id: username, name: username, avatar: avatarUrl || 'https://p16-sign-va.tiktokcdn.com/tos-maliva-avt-0068/7065997232230301701~c5_100x100.jpeg', count: amount });
         }
         isDirtyRef.current = true;
       }, []);
@@ -376,7 +239,6 @@
         const currentGifts = [...giftsRef.current];
         const uniqueKey = `${sender}-${giftName}`;
         const existingIndex = currentGifts.findIndex(g => g.uniqueKey === uniqueKey);
-
         if (existingIndex >= 0) {
           currentGifts[existingIndex].combo = combo;
         } else {
@@ -393,6 +255,7 @@
         setGifts([...filtered]);
       }, []);
 
+      // BATCHING (ОБНОВЛЕНИЕ РАЗ В 300МС ДЛЯ ОПТИМИЗАЦИИ)
       useEffect(() => {
         const interval = setInterval(() => {
           if (!isDirtyRef.current) return;
@@ -414,68 +277,48 @@
 
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
         
-        const wsUrl = `wss://api.tik.tools/?uniqueId=${user}&apiKey=${apiKey}`;
-        console.log("Connecting to TikTools WS:", wsUrl);
+        // ПОДКЛЮЧЕНИЕ К НАШЕМУ НОД СЕРВЕРУ
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        
+        // ВНИМАНИЕ: Подключаемся к нашему Proxy-серверу (server.js), а не к TikTools
+        const wsUrl = `${protocol}//${window.location.host}/?key=${apiKey}&u=${user}`;
+        console.log("Connecting to Proxy Backend...");
         
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
-        ws.onopen = () => setStatus('connected');
+        ws.onopen = () => {
+          setStatus('connected');
+          setErrorMessage('');
+        }
 
         ws.onmessage = (event) => {
           try {
-            const payload = JSON.parse(event.data);
+            const data = JSON.parse(event.data);
             
-            // СВЕРХБЕЗОПАСНЫЙ ПАРСИНГ: Не используем синтаксис ?. (опциональная цепочка)
-            // чтобы избежать любых ошибок синтаксиса на старых движках Chromium внутри OBS
-            if (payload.event === 'like' && payload.data) {
-              const data = payload.data;
-              const nickname = (data.user && data.user.nickname) ? data.user.nickname : 'User';
-              
-              let avatar = '';
-              if (data.user && data.user.avatarThumb && data.user.avatarThumb.urlList && data.user.avatarThumb.urlList.length > 0) {
-                 avatar = data.user.avatarThumb.urlList[0];
-              }
-              
-              const amount = data.likeCount ? data.likeCount : 1;
-              handleLike(nickname, avatar, amount);
+            if (data.type === 'error') {
+              setStatus('error');
+              setErrorMessage(data.message);
+              console.error("Backend Error:", data.message);
+            } else if (data.type === 'like') {
+              handleLike(data.nickname, data.avatar, data.amount);
+            } else if (data.type === 'gift') {
+              handleGift(data.nickname, data.avatar, data.giftName, data.giftImage, data.combo);
             }
-            
-            if (payload.event === 'gift' && payload.data) {
-              const data = payload.data;
-              const nickname = (data.user && data.user.nickname) ? data.user.nickname : 'User';
-              
-              let avatar = '';
-              if (data.user && data.user.avatarThumb && data.user.avatarThumb.urlList && data.user.avatarThumb.urlList.length > 0) {
-                 avatar = data.user.avatarThumb.urlList[0];
-              }
-              
-              const giftName = (data.gift && data.gift.name) ? data.gift.name : 'Gift';
-              
-              let giftImage = '';
-              if (data.gift && data.gift.image && data.gift.image.urlList && data.gift.image.urlList.length > 0) {
-                 giftImage = data.gift.image.urlList[0];
-              }
-              
-              const repeatCount = data.repeatCount ? data.repeatCount : 1;
-              handleGift(nickname, avatar, giftName, giftImage, repeatCount);
-            }
-          } catch (e) {
-            console.error("Error parsing WS message:", e);
-          }
+          } catch (e) {}
         };
 
         ws.onclose = () => {
-          setStatus('disconnected');
-          setTimeout(() => connectWebSocket(user, apiKey), 3000);
+          if (status !== 'error') {
+             setStatus('disconnected');
+             setTimeout(() => connectWebSocket(user, apiKey), 3000);
+          }
         };
         
-        ws.onerror = () => {
-          setStatus('error');
-        };
-      }, [handleLike, handleGift]);
+      }, [handleLike, handleGift, status]);
 
       useEffect(() => {
+        // Читаем параметры из URL клиента (ОБС)
         const params = new URLSearchParams(window.location.search);
         const apiKey = params.get('key');
         const username = params.get('u');
@@ -502,53 +345,52 @@
       return (
         <div className="min-h-screen bg-transparent flex flex-col font-sans text-slate-100 overflow-hidden relative p-6">
           
+          {/* СТАТУСЫ ОШИБОК И ПОДКЛЮЧЕНИЙ */}
           {status === 'disconnected' && (
-            <div className="absolute top-4 right-4 bg-red-900/80 p-2 rounded-full text-xs text-white z-50 flex items-center gap-2 border border-red-500">
-              <Icon name="WifiOff" size={14} /> <span>Reconnecting...</span>
+            <div className="absolute top-4 right-4 bg-amber-900/80 p-2 rounded-full text-xs text-white z-50 flex items-center gap-2 border border-amber-500 shadow-lg">
+              <Icon name="WifiOff" size={14} /> <span>Connecting to server...</span>
             </div>
           )}
+          
           {status === 'error' && (
-            <div className="absolute top-4 right-4 bg-red-900/80 p-2 rounded-full text-xs text-white z-50 border border-red-500">
-              Error connecting to TikTools
+            <div className="absolute top-4 left-4 bg-red-900 p-4 rounded-lg text-sm text-white z-50 border border-red-500 shadow-xl max-w-sm">
+              <b>Connection Error</b><br/>
+              {errorMessage}
             </div>
           )}
+
           {status === 'missing_credentials' && (
-            <div className="absolute top-4 left-4 bg-slate-900 p-4 rounded-lg text-sm text-white z-50 border border-slate-600">
-              <b>Ошибка:</b> Параметры не указаны.<br/>
-              Добавьте в конец URL: <code>?key=ВАШ_КЛЮЧ&u=ЮЗЕРНЕЙМ</code>
+            <div className="absolute top-4 left-4 bg-slate-900 p-4 rounded-lg text-sm text-white z-50 border border-slate-600 shadow-xl max-w-sm">
+              <b className="text-yellow-400">Ошибка:</b> Параметры не указаны.<br/><br/>
+              Для использования виджета, добавьте ваш ключ и имя пользователя в ссылку в OBS:<br/>
+              <code className="bg-black p-1 rounded mt-2 block break-all text-xs">
+                https://ВАШ_САЙТ.com/?key=ВАШ_КЛЮЧ&u=ЮЗЕРНЕЙМ
+              </code>
             </div>
           )}
 
-          {mode === 'gift' && (
-            <GiftOverlay gifts={gifts} removeGift={removeGift} />
-          )}
+          {mode === 'gift' && <GiftOverlay gifts={gifts} removeGift={removeGift} />}
 
-          {mode === 'likes' && status !== 'missing_credentials' && (
+          {mode === 'likes' && (status === 'connected' || status === 'disconnected') && (
             <div className="absolute top-6 left-6 flex flex-col items-start gap-3">
               <div className="flex items-center gap-2 bg-black/40 backdrop-blur border border-white/10 px-3 py-1 rounded-full text-sm font-mono text-white/80">
                 <Icon name="Timer" size={14} className="text-amber-400" />
                 <span>ROUND: <span className="text-white font-bold">{timeLeft}</span></span>
               </div>
-
               <ChampionThrone champion={champion} />
-
               {users.length > 0 ? (
                 <VersusBar user1={leader} user2={second} />
               ) : (
-                 <div className="flex items-center gap-3 text-slate-400 animate-pulse py-4">
+                 <div className="flex items-center gap-3 text-slate-400 animate-pulse py-4 bg-black/50 px-4 rounded-full backdrop-blur">
                    <div className="animate-spin"><Icon name="Loader2" size={16} /></div>
-                   <span>Ждем лайки для @{targetUsername}...</span>
+                   <span className="font-semibold text-sm">Ожидание лайков для @{targetUsername}...</span>
                  </div>
               )}
-
               <div className="flex flex-col items-start w-full pl-0">
-                {others.map((u, i) => (
-                  <LikerCard key={u.id} data={u} rank={i + 3} />
-                ))}
+                {others.map((u, i) => <LikerCard key={u.id} data={u} rank={i + 3} />)}
               </div>
             </div>
           )}
-
         </div>
       );
     }
