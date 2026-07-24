@@ -1,13 +1,14 @@
 {
 "name": "tiktools-proxy-overlay",
 "version": "1.0.0",
-"description": "TikTools WS Proxy for high concurrent users",
+"description": "TikTools SDK Proxy for high concurrent users",
 "type": "module",
 "main": "server.js",
 "scripts": {
 "start": "node server.js"
 },
 "dependencies": {
+"@tiktool/live": "^2.10.0",
 "express": "^4.18.2",
 "ws": "^8.16.0"
 }
